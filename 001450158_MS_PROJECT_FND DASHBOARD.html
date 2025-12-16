@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Fake News Detection Dashboard Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for visualization */
+        .sentiment-bar-container {
+            height: 1.5rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25); /* Enhanced Shadow */
+        }
+        .sentiment-bar-real {
+            background-color: #10B981; /* Emerald Green for Real */
+            transition: width 0.5s ease-in-out;
+        }
+        .sentiment-bar-fake {
+            background-color: #EF4444; /* Standard Red for Fake */
+            transition: width 0.5s ease-in-out;
+        }
+        /* Style for centered headers */
+        .header-container {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        /* Custom shadow for a more "lucrative" look */
+        .shadow-3xl {
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15), 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 sm:p-10 font-sans">
+
+    <div id="app" class="max-w-7xl mx-auto bg-white shadow-3xl rounded-2xl p-8 md:p-12">
+
+        <div class="header-container">
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-1">
+                Hybrid Fake News Detection Dashboard Prototype
+            </h1>
+            <p class="text-2xl font-medium text-blue-700">
+                BERT + Stylometric Fusion Model Simulation
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            
+            <div class="lg:col-span-2">
+                <div class="space-y-6 bg-blue-50 p-6 rounded-xl border border-blue-200 shadow-lg">
+                    <p class="text-center text-sm text-blue-800 font-semibold">
+                        INSTRUCTIONS: Enter or load an article, then click 'Classify Article' to start detecting!
+                    </p>
+                    <div>
+                        <label for="news-title" class="block text-base font-semibold text-gray-700 mb-1">Article Title</label>
+                        <input type="text" id="news-title" class="w-full p-4 border border-blue-400 rounded-xl focus:ring-red-500 focus:border-red-500 transition duration-150 text-lg shadow-inner bg-white" placeholder="Enter the headline here...">
+                    </div>
+
+                    <div>
+                        <label for="news-text" class="block text-base font-semibold text-gray-700 mb-1">Article Body Text</label>
+                        <textarea id="news-text" rows="12" class="w-full p-4 border border-blue-400 rounded-xl focus:ring-red-500 focus:border-red-500 transition duration-150 text-lg shadow-inner bg-white" placeholder="Paste the full news article body here..."></textarea>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-4 pt-2">
+                        <button onclick="classifyArticle()" id="classify-btn" class="flex-1 px-8 py-4 bg-red-600 text-white text-xl font-bold rounded-xl shadow-lg hover:bg-red-700 transition duration-200 focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-70 transform hover:scale-105">
+                            Classify Article
+                        </button>
+                        <button onclick="loadExample()" class="flex-1 px-8 py-4 bg-yellow-400 text-gray-900 text-xl font-bold rounded-xl shadow-lg hover:bg-yellow-500 transition duration-200 focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-70 transform hover:scale-105">
+                            Load Fake Example
+                        </button>
+                    </div>
+                    <div id="loading-message" class="hidden text-center text-lg text-red-500 mt-4 font-bold">Running complex BERT/MLP pipeline simulation...</div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1 space-y-10">
+                
+                <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl border-4 border-yellow-400">
+                    <h2 class="text-3xl font-extrabold text-white mb-6 border-b border-gray-600 pb-3 text-center">Final Prediction</h2>
+                    <div id="result-label" class="text-5xl font-black text-center py-8 rounded-xl transition duration-300 bg-black text-yellow-400 shadow-inner">
+                        PENDING
+                    </div>
+                    
+                    <div class="mt-8">
+                        <p class="text-lg font-semibold text-white mb-2">Confidence Breakdown</p>
+                        <div class="sentiment-bar-container">
+                            <div id="confidence-bar" class="h-full sentiment-bar-fake" style="width: 50%; opacity: 1;"></div>
+                            <div id="confidence-bar-real" class="h-full sentiment-bar-real" style="width: 50%; opacity: 1; float: right; margin-top: -1.5rem;"></div>
+                        </div>
+                        <p id="confidence-score" class="text-center text-xl font-extrabold mt-4 text-white">50.00% (FAKE) / 50.00% (REAL)</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-xl border border-red-300">
+                    <h2 class="text-2xl font-extrabold text-red-700 mb-4 border-b-2 border-red-200 pb-2">Stylometric Insight Panel</h2>
+                    <p class="text-sm text-gray-600 mb-4 italic">
+                        Score Contribution: Positive values push towards FAKE (Red), Negative values push towards REAL (Green).
+                    </p>
+                    <div id="stylometric-insights" class="space-y-4">
+                        <p class="text-gray-500 font-medium text-base">Results pending simulation.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+    // --- Phase I & II Helper Functions (Implemented in JavaScript) ---
+
+    // Constants from Phase IV Logistic Regression Coefficients
+    const LR_COEFFICIENTS = {
+        Sentence_Count: -1.7303, // Strongly predicts REAL
+        Word_Count: 1.4474,      // Strongly predicts FAKE
+        Flesch_Reading_Ease: -0.9976, // Predicts REAL
+        Exclamation_Count: 0.7190,
+        TTR_Ratio: 0.6144,
+        Avg_Word_Len: 0.1538,
+        Quote_Count: 0.0000 
+    };
+
+    const STYLO_FEATURES = ['Word_Count', 'Sentence_Count', 'Avg_Word_Len', 'TTR_Ratio', 'Exclamation_Count', 'Quote_Count', 'Flesch_Reading_Ease'];
+    
+    // MOCK NORMALIZATION RANGES: Updated to reflect Phase IV LogReg output for better simulation accuracy
+    const MOCK_MIN_VALS = [2, 1, 2, 0, 0, 0, 0];
+    const MOCK_MAX_VALS = [25051, 1385, 20, 1, 213, 0, 100]; 
+
+    // Simple word tokenizer
+    const tokenize = (text) => text.toLowerCase().match(/\b\w+\b/g) || [];
+
+    function cleanText(text) {
+        text = String(text).toLowerCase();
+        text = text.replace(/http\S+|www.\S+|[^\w\s\.\,\!\?]/g, ' ');
+        text = text.replace(/\s+/g, ' ').trim();
+        return text;
+    }
+
+    function calculateFleschReadingEase(text) {
+        if (!text) return 50;
+        const words = tokenize(text);
+        const sentences = text.split(/[.!?]+/g).filter(s => s.trim().length > 0);
+        
+        const word_count = words.length;
+        const sentence_count = sentences.length || 1;
+        
+        const syllable_count = words.reduce((sum, word) => {
+            word = word.toLowerCase().replace(/[^a-z]/g, '');
+            let count = word.match(/[aeiouy]/g)?.length || 0;
+            if (count > 0 && word.endsWith('e')) count--;
+            if (count === 0) count = 1;
+            return sum + count;
+        }, 0);
+
+        if (word_count === 0) return 50;
+
+        const score = 206.835 - 1.015 * (word_count / sentence_count) - 84.6 * (syllable_count / word_count);
+        return Math.max(0, Math.min(100, score));
+    }
+
+    function extractStylometricFeatures(text) {
+        const words = tokenize(text);
+        const sentences = text.split(/[.!?]+/g).filter(s => s.trim().length > 0);
+        
+        const raw_features = {};
+        raw_features['Word_Count'] = words.length;
+        raw_features['Sentence_Count'] = sentences.length;
+        raw_features['Avg_Word_Len'] = words.length > 0 ? words.reduce((sum, w) => sum + w.length, 0) / words.length : 0;
+        raw_features['TTR_Ratio'] = words.length > 0 ? new Set(words).size / words.length : 0;
+        raw_features['Exclamation_Count'] = (text.match(/!/g) || []).length;
+        raw_features['Quote_Count'] = (text.match(/["']/g) || []).length;
+        raw_features['Flesch_Reading_Ease'] = calculateFleschReadingEase(text);
+        
+        return raw_features;
+    }
+
+    function normalizeFeature(value, featureName) {
+        const index = STYLO_FEATURES.indexOf(featureName);
+        const minVal = MOCK_MIN_VALS[index];
+        const maxVal = MOCK_MAX_VALS[index];
+        
+        if (maxVal - minVal <= 0.0001) return 0; 
+        
+        let norm = (value - minVal) / (maxVal - minVal);
+        return Math.max(0, Math.min(1, norm)); 
+    }
+
+    // --- Core Inference and Visualization Logic ---
+
+    async function classifyArticle() {
+        // 1. INPUT GATHERING AND CLEANING
+        const title = document.getElementById('news-title').value;
+        const text = document.getElementById('news-text').value;
+        const fullContent = cleanText(title + ' ' + text);
+
+        if (fullContent.length < 10) {
+            alert('Please enter a longer article body and title.');
+            return;
+        }
+
+        const classifyBtn = document.getElementById('classify-btn');
+        const loadingMessage = document.getElementById('loading-message');
+        
+        // UI Handling: Simulate Pipeline Delay
+        classifyBtn.disabled = true;
+        classifyBtn.innerText = 'Analyzing...';
+        loadingMessage.classList.remove('hidden');
+        
+        // Await a short delay to simulate complexity
+        await new Promise(resolve => setTimeout(resolve, 2000)); 
+
+        // 2. STYLOMETRIC SCORING AND INSIGHTS
+        const rawFeatures = extractStylometricFeatures(fullContent);
+        let totalStylometricScore = 0;
+        let insightsHTML = '';
+
+        STYLO_FEATURES.forEach(feature => {
+            const rawVal = rawFeatures[feature];
+            const normVal = normalizeFeature(rawVal, feature);
+            const coefficient = LR_COEFFICIENTS[feature];
+            
+            const contribution = normVal * coefficient;
+            totalStylometricScore += contribution;
+
+            // Generate Insight HTML 
+            const isFakeTendency = contribution > 0;
+            // Use blue for REAL (negative coefficient) and red for FAKE (positive coefficient)
+            const bgColor = isFakeTendency ? 'bg-red-100' : 'bg-green-100'; 
+            const textColor = isFakeTendency ? 'text-red-700' : 'text-green-700';
+            const sign = isFakeTendency ? '+' : '';
+            const tendency = isFakeTendency ? 'FAKE' : 'REAL';
+            
+            insightsHTML += `
+                <div class="${bgColor} p-3 rounded-xl flex justify-between items-center transition duration-150 border border-gray-200">
+                    <p class="text-base font-semibold text-gray-800">${feature} <span class="text-gray-500 font-normal">(${rawVal.toFixed(2)})</span></p>
+                    <p class="text-lg ${textColor} font-extrabold">${sign}${contribution.toFixed(4)} <span class="text-gray-500 text-xs font-normal ml-2">(${tendency})</span></p>
+                </div>
+            `;
+        });
+        
+        document.getElementById('stylometric-insights').innerHTML = insightsHTML;
+
+        // 3. DYNAMIC SEMANTIC (BERT) CONTRIBUTION SIMULATION
+        let semanticScore = 0.0;
+        semanticScore = 10.0; // A. Base FAKE bias (BERT carries the FAKE signal)
+
+        if (rawFeatures.Word_Count < 100) {
+            semanticScore -= 2.0; 
+        } else if (rawFeatures.Word_Count > 500) {
+            semanticScore += 1.0; 
+        }
+
+        // C. CRITICAL FIX: Semantic Reversal based on Senationalism (Exclamations)
+        if (rawFeatures.Exclamation_Count === 0) {
+            semanticScore -= 12.0; // Massive penalty for formal text (REAL signal)
+        } else if (rawFeatures.Exclamation_Count > 5) {
+            semanticScore += 3.0; 
+        }
+
+        // 4. FINAL PREDICTION (MLP/LR Output Layer Simulation)
+        const totalLogitScore = semanticScore + totalStylometricScore; 
+        const probabilityFake = 1 / (1 + Math.exp(-totalLogitScore));
+        
+        // 5. UPDATE UI
+        updateResults(probabilityFake);
+
+        // UI Reset
+        classifyBtn.disabled = false;
+        classifyBtn.innerText = 'Classify Article';
+        loadingMessage.classList.add('hidden');
+    }
+
+    function updateResults(prob) {
+        const resultLabel = document.getElementById('result-label');
+        const confidenceBar = document.getElementById('confidence-bar');
+        const confidenceBarReal = document.getElementById('confidence-bar-real');
+        const confidenceScore = document.getElementById('confidence-score');
+        
+        const prediction = prob >= 0.5 ? 'FAKE NEWS' : 'REAL NEWS';
+        const colorClass = prob >= 0.5 ? 'bg-red-600 text-white shadow-red-500' : 'bg-green-600 text-white shadow-green-500';
+        const fakePercent = prob * 100;
+        const realPercent = 100 - fakePercent;
+
+        resultLabel.innerHTML = prediction;
+        resultLabel.className = `text-5xl font-black text-center py-8 rounded-2xl transition duration-300 shadow-xl ${colorClass}`;
+        
+        confidenceBar.style.width = `${fakePercent}%`;
+        confidenceBarReal.style.width = `${realPercent}%`;
+
+        confidenceScore.innerHTML = `<span class="text-red-400">${fakePercent.toFixed(2)}% (FAKE)</span> / <span class="text-green-400">${realPercent.toFixed(2)}% (REAL)</span>`;
+    }
+
+    // --- Example Loader ---
+    function loadExample() {
+        document.getElementById('news-title').value = "EXCLUSIVE: UNCONFIRMED ALIEN CIVILIZATION DISCOVERED ON MARS!!!";
+        document.getElementById('news-text').value = "Shocking satellite images obtained by an anonymous source reveal massive pyramids and clearly manufactured structures on the Martian surface! Scientists are BAFFLED! The government has covered this up for decades! This unprecedented discovery proves that everything you know about human history is WRONG. Share this story now before they take it down! This article contains over 1000 words detailing the conspiracy and has over 15 exclamation marks!!!!";
+        
+        // The normalization max values are already set as constants at the top.
+        
+        // Clear any previous results
+        document.getElementById('stylometric-insights').innerHTML = '<p class="text-gray-500 font-medium text-base">Text loaded. Click "Classify Article" to run simulation.</p>';
+        updateResults(0.5); // Reset output display to PENDING/50%
+    }
+
+    // --- Initialization: Set PENDING State on Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Only set the initial state (PENDING), do not load text or classify.
+        updateResults(0.5); 
+    });
+</script>
+
+</body>
+</html>
